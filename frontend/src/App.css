@@ -1,0 +1,189 @@
+/* App-specific styles */
+
+.page-container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+}
+
+.card-style {
+  @apply bg-white border border-slate-200 rounded-lg p-6 shadow-sm;
+}
+
+.table-container {
+  @apply border border-slate-200 rounded-lg overflow-hidden bg-white;
+}
+
+.btn-primary {
+  @apply bg-blue-500 hover:bg-blue-600 text-white rounded-md px-4 py-2 font-medium transition-all duration-150 active:scale-[0.98];
+}
+
+.btn-secondary {
+  @apply bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-md px-4 py-2 font-medium transition-all duration-150 active:scale-[0.98];
+}
+
+.input-field {
+  @apply border border-slate-200 rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all duration-150;
+}
+
+.label-style {
+  @apply text-xs uppercase tracking-widest font-bold text-slate-500 mb-1;
+}
+
+/* Login page specific */
+.login-container {
+  @apply min-h-screen flex;
+}
+
+.login-form-section {
+  @apply w-full lg:w-1/2 flex items-center justify-center p-8 bg-white;
+}
+
+.login-hero-section {
+  @apply hidden lg:flex lg:w-1/2 items-center justify-center relative;
+  background-image: url('./images/login-hero.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+/* Dashboard cards */
+.dashboard-card {
+  @apply bg-white border border-slate-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer;
+}
+
+.dashboard-card:hover {
+  @apply border-blue-200;
+}
+
+/* Status badges */
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-present {
+  @apply bg-green-100 text-green-700;
+}
+
+.status-not-present {
+  @apply bg-yellow-100 text-yellow-700;
+}
+
+.status-absent {
+  @apply bg-red-100 text-red-700;
+}
+
+/* Member status badges */
+.member-status-member {
+  @apply bg-blue-100 text-blue-700;
+}
+
+.member-status-non-member {
+  @apply bg-slate-100 text-slate-700;
+}
+
+.member-status-visitor {
+  @apply bg-purple-100 text-purple-700;
+}
+
+/* Zone badge */
+.zone-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600;
+}
+
+/* Header */
+.header {
+  @apply h-16 border-b border-slate-200 bg-white sticky top-0 z-50 flex items-center justify-between px-6;
+}
+
+/* Navigation */
+.nav-link {
+  @apply text-slate-600 hover:text-blue-600 font-medium transition-colors duration-150;
+}
+
+.nav-link-active {
+  @apply text-blue-600;
+}
+
+/* Mobile menu */
+.mobile-menu-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+}
+
+.mobile-menu {
+  @apply fixed top-0 left-0 h-full w-64 bg-white z-50 shadow-xl transform transition-transform duration-300;
+}
+
+/* Empty state */
+.empty-state {
+  @apply text-center py-12;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mx-auto text-slate-300 mb-4;
+}
+
+.empty-state-title {
+  @apply text-lg font-medium text-slate-600 mb-2;
+}
+
+.empty-state-description {
+  @apply text-slate-400;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin h-5 w-5 border-2 border-slate-200 border-t-blue-500 rounded-full;
+}
+
+/* Form sections */
+.form-section {
+  @apply space-y-4;
+}
+
+.form-row {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4;
+}
+
+/* Search input */
+.search-input {
+  @apply pl-10 pr-4 py-2 border border-slate-200 rounded-lg w-full focus:ring-2 focus:ring-blue-100 focus:border-blue-500;
+}
+
+/* Filter dropdown */
+.filter-select {
+  @apply border border-slate-200 rounded-md px-3 py-2 bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-500;
+}
+
+/* Action buttons in table */
+.action-btn {
+  @apply p-1.5 rounded-md hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors duration-150;
+}
+
+/* Modal/Dialog styles */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+}
+
+.modal-content {
+  @apply bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto;
+}
+
+/* Attendance row */
+.attendance-row {
+  @apply flex items-center justify-between py-3 px-4 border-b border-slate-100 last:border-b-0;
+}
+
+.attendance-row:hover {
+  @apply bg-slate-50;
+}
+
+/* Stats card */
+.stats-card {
+  @apply bg-white border border-slate-200 rounded-lg p-4 text-center;
+}
+
+.stats-value {
+  @apply text-3xl font-bold text-slate-800;
+}
+
+.stats-label {
+  @apply text-sm text-slate-500 mt-1;
+}

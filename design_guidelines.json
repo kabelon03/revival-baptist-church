@@ -1,0 +1,90 @@
+{
+  "theme": "LIGHT",
+  "archetype": "Archetype 1 (Organic & Earthy / Trust / Calm)",
+  "vibe": "Clean, simple, highly functional dashboard with soft blue accents, emphasizing trust and clarity.",
+  "colors": {
+    "background_primary": "#FAFAFA",
+    "background_secondary": "#FFFFFF",
+    "primary": "#3B82F6",
+    "primary_hover": "#2563EB",
+    "primary_light": "#EFF6FF",
+    "text_primary": "#0F172A",
+    "text_secondary": "#475569",
+    "text_muted": "#94A3B8",
+    "border": "#E2E8F0",
+    "success": "#10B981",
+    "success_bg": "#D1FAE5",
+    "warning": "#F59E0B",
+    "warning_bg": "#FEF3C7",
+    "danger": "#EF4444",
+    "danger_bg": "#FEE2E2",
+    "zone_badge_bg": "#F1F5F9",
+    "zone_badge_text": "#334155"
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope",
+      "style": "tracking-tight text-slate-900 font-extrabold",
+      "h1": "text-4xl sm:text-5xl",
+      "h2": "text-2xl sm:text-3xl",
+      "h3": "text-xl sm:text-2xl"
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "style": "text-slate-600 leading-relaxed",
+      "base": "text-base",
+      "small": "text-sm",
+      "label": "text-xs uppercase tracking-widest font-bold text-slate-500"
+    }
+  },
+  "layout_and_spacing": {
+    "general": "Dense but airy. Cardless rectangular approach with generous padding.",
+    "page_container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12",
+    "header": "h-16 border-b border-slate-200 bg-white sticky top-0 z-50 flex items-center justify-between px-6",
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-3 gap-6",
+    "card_style": "bg-white border border-slate-200 rounded-lg p-6 shadow-sm",
+    "table_container": "border border-slate-200 rounded-lg overflow-hidden bg-white"
+  },
+  "components_strategy": {
+    "tables": "Use Shadcn Table. No internal vertical borders. Use hover:bg-slate-50 for rows.",
+    "buttons": "Flat style with rounded-md. Primary: bg-blue-500 text-white. Secondary: bg-white border border-slate-200 text-slate-700 hover:bg-slate-50.",
+    "forms": "Use Shadcn Form, Input, Select. Labels must be uppercase and small. Inputs must have focus:ring-2 focus:ring-blue-100 focus:border-blue-500.",
+    "badges": "Status badges must use soft backgrounds with distinct text colors (e.g. bg-green-100 text-green-700 for Present).",
+    "login_page": "Split screen layout: Left side clean white form, Right side generated abstract soft blue cinematic background."
+  },
+  "motion": {
+    "buttons": "transition-transform active:scale-[0.98] duration-150",
+    "rows": "transition-colors duration-200",
+    "page_load": "framer-motion opacity-0 to opacity-100 translate-y-2 to translate-y-0"
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "stroke-2, size 20px (w-5 h-5) for standard use"
+  },
+  "testing": {
+    "data_testids": "All buttons, inputs, table rows, and links must have a role-based kebab-case data-testid attribute (e.g., login-submit-button, member-table-row-1)."
+  },
+  "media": {
+    "logo": {
+      "url": "/logo.jpg",
+      "description": "Revival Baptist Church logo to be used in Header, Login Page, and Navigation."
+    },
+    "login_background": {
+      "url": "/logo.jpg",
+      "description": "Revival Baptist Church logo for the login page."
+    },
+    "community_image": {
+      "url": "https://images.unsplash.com/photo-1765947382522-ca6d359af08c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwxfHxwZW9wbGUlMjBnYXRoZXJpbmclMjBjb21tdW5pdHklMjBjaHVyY2h8ZW58MHx8fHwxNzc1MTI0MDMwfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Optional image showing a bright church gathering."
+    }
+  },
+  "instructions_to_main_agent": [
+    "Implement navigation either as a sticky top header or left sidebar using the provided logo.",
+    "For the Dashboard, provide 3 bold, clear action cards: Add Member, View Members, Take Attendance.",
+    "Implement Member Management using Shadcn Table for listing and a dialog/page for the Add/Edit form.",
+    "Implement Attendance System using a Shadcn Table with interactive Radio Group or Select for status marking.",
+    "Enforce the 'Clean Utility' font setup: Manrope for headings, IBM Plex Sans for body. Do not default to Inter.",
+    "Include Google Sheets integration logic as specified in the original request.",
+    "Strictly follow the color definitions from this JSON, limiting the soft blue accent primarily to actions and active states."
+  ]
+}
