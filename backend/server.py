@@ -6,9 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import RedirectResponse
 import os
 import certifi
-import secrets
 import httpx
-
 os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -28,9 +26,6 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
 
-# ========================
-# Setup
-# ========================
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -61,7 +56,9 @@ security = HTTPBasic()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Locks for sync deduplication
+# ========================
+# Deduplication Locks
+# ========================
 members_sync_lock = asyncio.Lock()
 attendance_sync_lock = asyncio.Lock()
 
@@ -125,13 +122,12 @@ class Attendance(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # ========================
-# Helper & Sync Functions
+# Helper Functions
 # ========================
 async def get_sheets_credentials():
     token = await db.google_tokens.find_one({}, {"_id": 0})
     if not token:
         return None
-    
     creds = Credentials(
         token=token["access_token"],
         refresh_token=token.get("refresh_token"),
@@ -139,7 +135,6 @@ async def get_sheets_credentials():
         client_id=token["client_id"],
         client_secret=token["client_secret"]
     )
-
     if token.get("expires_at"):
         expires = datetime.fromisoformat(token["expires_at"])
         if expires.tzinfo is None:
@@ -161,15 +156,19 @@ async def sync_members_to_sheets_internal(creds):
     headers = ["Member ID", "First Name", "Surname", "Gender", "Status", "Zone", "Phone Number", "Address"]
     values = [headers]
     for m in members:
-        values.append([m.get('id', ''), m.get('first_name', ''), m.get('surname', ''),
-                       m.get('gender', ''), m.get('status', ''), m.get('zone', ''),
-                       m.get('phone_number', ''), m.get('address', '')])
-
+        values.append([
+            m.get('id', ''), m.get('first_name', ''), m.get('surname', ''),
+            m.get('gender', ''), m.get('status', ''), m.get('zone', ''),
+            m.get('phone_number', ''), m.get('address', '')
+        ])
     def write():
         service = build('sheets', 'v4', credentials=creds)
-        service.spreadsheets().values().clear(spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A:Z").execute()
+        service.spreadsheets().values().clear(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A:Z"
+        ).execute()
         service.spreadsheets().values().update(
-            spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A1", valueInputOption="RAW", body={"values": values}
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A1",
+            valueInputOption="RAW", body={"values": values}
         ).execute()
     await asyncio.to_thread(write)
 
@@ -177,39 +176,46 @@ async def sync_attendance_to_sheets_internal(creds):
     records = await db.attendance.find({}, {"_id": 0}).to_list(100000)
     all_members = await db.members.find({}, {"_id": 0}).to_list(10000)
     member_map = {m['id']: m for m in all_members}
-
     headers = ["First Name", "Surname", "Date", "Status", "Reason"]
     values = [headers]
     for r in records:
         member = member_map.get(r.get('member_id', ''), {})
         values.append([
-            member.get('first_name', ''), member.get('surname', ''),
-            r.get('date', ''), r.get('status', ''), r.get('reason', '')
+            member.get('first_name', ''),
+            member.get('surname', ''),
+            r.get('date', ''),
+            r.get('status', ''),
+            r.get('reason', '')
         ])
-
     def write():
         service = build('sheets', 'v4', credentials=creds)
-        service.spreadsheets().values().clear(spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A:Z").execute()
+        service.spreadsheets().values().clear(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A:Z"
+        ).execute()
         service.spreadsheets().values().update(
-            spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A1", valueInputOption="RAW", body={"values": values}
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A1",
+            valueInputOption="RAW", body={"values": values}
         ).execute()
     await asyncio.to_thread(write)
 
-# Background Syncs
+# ========================
+# Background Sync Functions
+# ========================
 async def background_sync_members():
+    """Sync members to Google Sheets in background with deduplication"""
     if members_sync_lock.locked():
         return
     async with members_sync_lock:
         try:
-            await asyncio.sleep(2)
+            await asyncio.sleep(2)  # Wait to batch multiple requests
             creds = await get_sheets_credentials()
             if creds and GOOGLE_SHEETS_ID:
                 await sync_members_to_sheets_internal(creds)
-                logger.info("✅ Background members sync completed")
         except Exception as e:
             logger.error(f"Background members sync failed: {e}")
 
 async def background_sync_attendance():
+    """Sync attendance to Google Sheets in background with deduplication"""
     if attendance_sync_lock.locked():
         return
     async with attendance_sync_lock:
@@ -218,7 +224,6 @@ async def background_sync_attendance():
             creds = await get_sheets_credentials()
             if creds and GOOGLE_SHEETS_ID:
                 await sync_attendance_to_sheets_internal(creds)
-                logger.info("✅ Background attendance sync completed")
         except Exception as e:
             logger.error(f"Background attendance sync failed: {e}")
 
@@ -226,13 +231,24 @@ async def background_sync_attendance():
 # Auth
 # ========================
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
-    if not (secrets.compare_digest(credentials.username, ADMIN_USERNAME) and 
-            secrets.compare_digest(credentials.password, ADMIN_PASSWORD)):
+    is_correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
+    is_correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+    if not (is_correct_username and is_correct_password):
         raise HTTPException(status_code=401, detail="Invalid credentials", headers={"WWW-Authenticate": "Basic"})
     return credentials.username
 
+@api_router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    if secrets.compare_digest(request.username, ADMIN_USERNAME) and secrets.compare_digest(request.password, ADMIN_PASSWORD):
+        return LoginResponse(success=True, message="Login successful")
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+@api_router.get("/auth/verify")
+async def verify_auth(username: str = Depends(verify_admin)):
+    return {"authenticated": True, "username": username}
+
 # ========================
-# Endpoints
+# Member Endpoints (Updated)
 # ========================
 @api_router.post("/members", response_model=Member)
 async def create_member(member_data: MemberCreate):
@@ -240,7 +256,38 @@ async def create_member(member_data: MemberCreate):
     doc = member.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.members.insert_one(doc)
+    
+    # Background sync - non-blocking
     asyncio.create_task(background_sync_members())
+    
+    return member
+
+@api_router.get("/members", response_model=List[Member])
+async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
+                     status: Optional[str] = None, gender: Optional[str] = None):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"first_name": {"$regex": search, "$options": "i"}},
+            {"surname": {"$regex": search, "$options": "i"}},
+            {"phone_number": {"$regex": search, "$options": "i"}}
+        ]
+    if zone: query["zone"] = zone
+    if status: query["status"] = status
+    if gender: query["gender"] = gender
+    members = await db.members.find(query, {"_id": 0}).to_list(1000)
+    for m in members:
+        if isinstance(m.get('created_at'), str):
+            m['created_at'] = datetime.fromisoformat(m['created_at'])
+    return members
+
+@api_router.get("/members/{member_id}", response_model=Member)
+async def get_member(member_id: str):
+    member = await db.members.find_one({"id": member_id}, {"_id": 0})
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if isinstance(member.get('created_at'), str):
+        member['created_at'] = datetime.fromisoformat(member['created_at'])
     return member
 
 @api_router.put("/members/{member_id}", response_model=Member)
@@ -252,6 +299,9 @@ async def update_member(member_id: str, member_data: MemberUpdate):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Member not found")
     member = await db.members.find_one({"id": member_id}, {"_id": 0})
+    if isinstance(member.get('created_at'), str):
+        member['created_at'] = datetime.fromisoformat(member['created_at'])
+    
     asyncio.create_task(background_sync_members())
     return member
 
@@ -261,14 +311,20 @@ async def delete_member(member_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Member not found")
     await db.attendance.delete_many({"member_id": member_id})
+    
     asyncio.create_task(background_sync_members())
     return {"message": "Member deleted successfully"}
 
+# ========================
+# Attendance Endpoints (Updated)
+# ========================
 @api_router.post("/attendance")
 async def save_attendance(attendance_data: AttendanceCreate):
     for record in attendance_data.records:
-        await db.attendance.delete_one({"date": attendance_data.date, "member_id": record.member_id})
-
+        await db.attendance.delete_one({
+            "date": attendance_data.date,
+            "member_id": record.member_id
+        })
     records = []
     for record in attendance_data.records:
         attendance = Attendance(
@@ -280,21 +336,59 @@ async def save_attendance(attendance_data: AttendanceCreate):
         doc = attendance.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
         records.append(doc)
-
     if records:
         await db.attendance.insert_many(records)
-
+    
     asyncio.create_task(background_sync_attendance())
     return {"message": f"Attendance saved for {len(records)} members", "date": attendance_data.date}
 
 # ========================
-# Google Sheets OAuth (Fixed with PKCE)
+# Rest of your original endpoints (unchanged)
 # ========================
+@api_router.get("/attendance")
+async def get_attendance(date: Optional[str] = None, member_id: Optional[str] = None):
+    query = {}
+    if date: query["date"] = date
+    if member_id: query["member_id"] = member_id
+    records = await db.attendance.find(query, {"_id": 0}).to_list(10000)
+    for r in records:
+        if isinstance(r.get('created_at'), str):
+            r['created_at'] = datetime.fromisoformat(r['created_at'])
+    return records
+
+@api_router.get("/attendance/dates")
+async def get_attendance_dates():
+    dates = await db.attendance.distinct("date")
+    return sorted(dates, reverse=True)
+
+@api_router.get("/attendance/summary")
+async def get_attendance_summary(date: str):
+    records = await db.attendance.find({"date": date}, {"_id": 0}).to_list(10000)
+    present = sum(1 for r in records if r['status'] == 'Present')
+    not_present = sum(1 for r in records if r['status'] == 'Not Present')
+    absent = sum(1 for r in records if r['status'] == 'Absent')
+    return {"date": date, "total": len(records), "present": present, "not_present": not_present, "absent": absent}
+
+@api_router.get("/attendance/member/{member_id}")
+async def get_member_attendance_history(member_id: str):
+    records = await db.attendance.find({"member_id": member_id}, {"_id": 0}).to_list(10000)
+    for r in records:
+        if isinstance(r.get('created_at'), str):
+            r['created_at'] = datetime.fromisoformat(r['created_at'])
+    return sorted(records, key=lambda x: x['date'], reverse=True)
+
+# Google OAuth endpoints (kept as in your original)
+@api_router.get("/oauth/sheets/status")
+async def get_sheets_status():
+    configured = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+    token = await db.google_tokens.find_one({}, {"_id": 0})
+    connected = bool(token and token.get('access_token'))
+    return {"configured": configured, "connected": connected, "sheet_id": GOOGLE_SHEETS_ID if GOOGLE_SHEETS_ID else None}
+
 @api_router.get("/oauth/sheets/login")
 async def sheets_login():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(status_code=400, detail="Google OAuth not configured")
-
     flow = Flow.from_client_config({
         "web": {
             "client_id": GOOGLE_CLIENT_ID,
@@ -303,92 +397,89 @@ async def sheets_login():
             "token_uri": "https://oauth2.googleapis.com/token"
         }
     }, scopes=SCOPES, redirect_uri=REDIRECT_URI)
-
-    # Generate code verifier for PKCE
-    code_verifier = secrets.token_urlsafe(32)
-    flow.code_challenge_method = "S256"
-
-    url, state = flow.authorization_url(
-        access_type='offline',
-        prompt='consent',
-        code_challenge=flow.code_challenge,  # This is important
-        code_challenge_method=flow.code_challenge_method
-    )
-
-    # Store both state and code_verifier
+    flow.code_challenge_method = None
+    url, state = flow.authorization_url(access_type='offline', prompt='consent', code_challenge=None, code_challenge_method=None)
     await db.oauth_states.delete_many({})
-    await db.oauth_states.insert_one({
-        "state": state,
-        "code_verifier": code_verifier,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-
+    await db.oauth_states.insert_one({"state": state, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"auth_url": url}
-
 
 @api_router.get("/oauth/sheets/callback")
 async def sheets_callback(code: str, state: str):
-    stored = await db.oauth_states.find_one({"state": state})
-    if not stored:
-        raise HTTPException(status_code=400, detail="Invalid or expired state")
-
-    code_verifier = stored.get("code_verifier")
+    stored_state = await db.oauth_states.find_one({"state": state})
+    if not stored_state:
+        raise HTTPException(status_code=400, detail="Invalid state")
     await db.oauth_states.delete_one({"state": state})
-
-    if not code_verifier:
-        raise HTTPException(status_code=400, detail="Missing code verifier")
-
-    flow = Flow.from_client_config({
-        "web": {
-            "client_id": GOOGLE_CLIENT_ID,
-            "client_secret": GOOGLE_CLIENT_SECRET,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token"
-        }
-    }, scopes=SCOPES, redirect_uri=REDIRECT_URI)
-
-    try:
-        flow.fetch_token(code=code, code_verifier=code_verifier)
-        creds = flow.credentials
-
-        await db.google_tokens.delete_many({})
-        await db.google_tokens.insert_one({
-            "access_token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "expires_at": creds.expiry.isoformat() if creds.expiry else None,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-
-        logger.info("✅ Google Sheets connected successfully")
-        return RedirectResponse(f"{FRONTEND_URL}/settings?sheets_connected=true")
-
-    except Exception as e:
-        logger.error(f"Token exchange failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to connect: {str(e)}")
-
+    token_data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
+    async with httpx.AsyncClient(verify=certifi.where()) as http_client:
+        response = await http_client.post("https://oauth2.googleapis.com/token", data=token_data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Token exchange failed: {response.text}")
+    token_info = response.json()
+    await db.google_tokens.delete_many({})
+    await db.google_tokens.insert_one({
+        "access_token": token_info["access_token"],
+        "refresh_token": token_info.get("refresh_token"),
+        "expires_at": datetime.now(timezone.utc).isoformat(),
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    return RedirectResponse(f"{FRONTEND_URL}/settings?sheets_connected=true")
 
 @api_router.post("/oauth/sheets/disconnect")
 async def disconnect_sheets():
     await db.google_tokens.delete_many({})
     return {"message": "Google Sheets disconnected"}
 
-# Manual Sync
 @api_router.post("/sheets/sync/members")
 async def sync_members_to_sheets():
     creds = await get_sheets_credentials()
     if not creds:
         raise HTTPException(status_code=400, detail="Google Sheets not connected")
+    if not GOOGLE_SHEETS_ID:
+        raise HTTPException(status_code=400, detail="Google Sheets ID not configured")
     await sync_members_to_sheets_internal(creds)
     return {"message": "Members synced successfully"}
 
-# Add other missing endpoints (get_members, get_attendance, stats, etc.) as needed
+@api_router.post("/sheets/sync/attendance")
+async def sync_attendance_to_sheets():
+    creds = await get_sheets_credentials()
+    if not creds:
+        raise HTTPException(status_code=400, detail="Google Sheets not connected")
+    if not GOOGLE_SHEETS_ID:
+        raise HTTPException(status_code=400, detail="Google Sheets ID not configured")
+    await sync_attendance_to_sheets_internal(creds)
+    return {"message": "Attendance synced successfully"}
+
+@api_router.get("/stats")
+async def get_stats():
+    total_members = await db.members.count_documents({})
+    members_by_status = await db.members.aggregate([{"$group": {"_id": "$status", "count": {"$sum": 1}}}]).to_list(10)
+    members_by_zone = await db.members.aggregate([{"$group": {"_id": "$zone", "count": {"$sum": 1}}}]).to_list(20)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_records = await db.attendance.find({"date": today}, {"_id": 0}).to_list(10000)
+    today_present = sum(1 for r in today_records if r.get('status') == 'Present')
+    return {
+        "total_members": total_members,
+        "members_by_status": {s['_id']: s['count'] for s in members_by_status},
+        "members_by_zone": {z['_id']: z['count'] for z in members_by_zone},
+        "today_attendance": {"date": today, "total": len(today_records), "present": today_present}
+    }
 
 @api_router.get("/")
 async def root():
     return {"message": "Revival Baptist Church API", "status": "running"}
+
+@api_router.get("/health")
+async def health():
+    return {"status": "healthy"}
 
 # ========================
 # App Setup
