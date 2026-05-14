@@ -7,9 +7,11 @@ from fastapi.responses import RedirectResponse
 import os
 import certifi
 import httpx
+
 os.environ['SSL_CERT_FILE'] = certifi.where()
 os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 import logging
 import secrets
 from pathlib import Path
@@ -17,12 +19,13 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-import warnings
+import asyncio
+
+# Google Imports
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
-import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -53,6 +56,41 @@ security = HTTPBasic()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# ========================
+# Queuing System for High Concurrency
+# ========================
+member_sync_queue: asyncio.Queue = asyncio.Queue()
+attendance_sync_queue: asyncio.Queue = asyncio.Queue()
+
+async def sync_worker(queue: asyncio.Queue, sync_func, name: str):
+    while True:
+        try:
+            await queue.get()
+            await asyncio.sleep(2)  # Batch multiple requests
+            
+            # Clear queue to avoid duplicate syncs
+            while not queue.empty():
+                try:
+                    queue.get_nowait()
+                    queue.task_done()
+                except asyncio.QueueEmpty:
+                    break
+
+            creds = await get_sheets_credentials()
+            if creds and GOOGLE_SHEETS_ID:
+                await sync_func(creds)
+                logger.info(f"✅ {name} sync completed")
+            
+            queue.task_done()
+        except Exception as e:
+            logger.error(f"{name} sync worker error: {e}")
+            await asyncio.sleep(5)
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(sync_worker(member_sync_queue, sync_members_to_sheets_internal, "Members"))
+    asyncio.create_task(sync_worker(attendance_sync_queue, sync_attendance_to_sheets_internal, "Attendance"))
 
 # ========================
 # Models
@@ -113,10 +151,6 @@ class Attendance(BaseModel):
     reason: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class GoogleOAuthState(BaseModel):
-    state: str
-    created_at: datetime
-
 # ========================
 # Helper Functions
 # ========================
@@ -159,9 +193,7 @@ async def sync_members_to_sheets_internal(creds):
         ])
     def write():
         service = build('sheets', 'v4', credentials=creds)
-        service.spreadsheets().values().clear(
-            spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A:Z"
-        ).execute()
+        service.spreadsheets().values().clear(spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A:Z").execute()
         service.spreadsheets().values().update(
             spreadsheetId=GOOGLE_SHEETS_ID, range="Members!A1",
             valueInputOption="RAW", body={"values": values}
@@ -177,17 +209,12 @@ async def sync_attendance_to_sheets_internal(creds):
     for r in records:
         member = member_map.get(r.get('member_id', ''), {})
         values.append([
-            member.get('first_name', ''),
-            member.get('surname', ''),
-            r.get('date', ''),
-            r.get('status', ''),
-            r.get('reason', '')
+            member.get('first_name', ''), member.get('surname', ''),
+            r.get('date', ''), r.get('status', ''), r.get('reason', '')
         ])
     def write():
         service = build('sheets', 'v4', credentials=creds)
-        service.spreadsheets().values().clear(
-            spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A:Z"
-        ).execute()
+        service.spreadsheets().values().clear(spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A:Z").execute()
         service.spreadsheets().values().update(
             spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A1",
             valueInputOption="RAW", body={"values": values}
@@ -223,22 +250,8 @@ async def create_member(member_data: MemberCreate):
     doc = member.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.members.insert_one(doc)
-    
-    # Fire and forget - sync in background without blocking
-    asyncio.create_task(background_sync_members())
-    
+    member_sync_queue.put_nowait("sync")
     return member
-
-
-async def background_sync_members():
-    """Sync members to Google Sheets in background"""
-    try:
-        await asyncio.sleep(2)  # Wait 2 seconds to batch multiple additions
-        creds = await get_sheets_credentials()
-        if creds and GOOGLE_SHEETS_ID:
-            await sync_members_to_sheets_internal(creds)
-    except Exception as e:
-        logger.error(f"Background sync failed: {e}")
 
 @api_router.get("/members", response_model=List[Member])
 async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
@@ -279,7 +292,7 @@ async def update_member(member_id: str, member_data: MemberUpdate):
     member = await db.members.find_one({"id": member_id}, {"_id": 0})
     if isinstance(member.get('created_at'), str):
         member['created_at'] = datetime.fromisoformat(member['created_at'])
-        asyncio.create_task(background_sync_members())
+    member_sync_queue.put_nowait("sync")
     return member
 
 @api_router.delete("/members/{member_id}")
@@ -288,7 +301,7 @@ async def delete_member(member_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Member not found")
     await db.attendance.delete_many({"member_id": member_id})
-    asyncio.create_task(background_sync_members())
+    member_sync_queue.put_nowait("sync")
     return {"message": "Member deleted successfully"}
 
 # ========================
@@ -314,7 +327,8 @@ async def save_attendance(attendance_data: AttendanceCreate):
         records.append(doc)
     if records:
         await db.attendance.insert_many(records)
-        asyncio.create_task(background_sync_members())
+    
+    attendance_sync_queue.put_nowait("sync")
     return {"message": f"Attendance saved for {len(records)} members", "date": attendance_data.date}
 
 @api_router.get("/attendance")
@@ -350,7 +364,7 @@ async def get_member_attendance_history(member_id: str):
     return sorted(records, key=lambda x: x['date'], reverse=True)
 
 # ========================
-# Google Sheets OAuth
+# Google Sheets OAuth & Manual Sync
 # ========================
 @api_router.get("/oauth/sheets/status")
 async def get_sheets_status():
@@ -372,7 +386,7 @@ async def sheets_login():
         }
     }, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     flow.code_challenge_method = None
-    url, state = flow.authorization_url(access_type='offline', prompt='consent', code_challenge=None, code_challenge_method=None)
+    url, state = flow.authorization_url(access_type='offline', prompt='consent')
     await db.oauth_states.delete_many({})
     await db.oauth_states.insert_one({"state": state, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"auth_url": url}
@@ -412,9 +426,6 @@ async def disconnect_sheets():
     await db.google_tokens.delete_many({})
     return {"message": "Google Sheets disconnected"}
 
-# ========================
-# Manual Sync Endpoints
-# ========================
 @api_router.post("/sheets/sync/members")
 async def sync_members_to_sheets():
     creds = await get_sheets_credentials()
