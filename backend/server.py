@@ -223,7 +223,22 @@ async def create_member(member_data: MemberCreate):
     doc = member.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.members.insert_one(doc)
+    
+    # Fire and forget - sync in background without blocking
+    asyncio.create_task(background_sync_members())
+    
     return member
+
+
+async def background_sync_members():
+    """Sync members to Google Sheets in background"""
+    try:
+        await asyncio.sleep(2)  # Wait 2 seconds to batch multiple additions
+        creds = await get_sheets_credentials()
+        if creds and GOOGLE_SHEETS_ID:
+            await sync_members_to_sheets_internal(creds)
+    except Exception as e:
+        logger.error(f"Background sync failed: {e}")
 
 @api_router.get("/members", response_model=List[Member])
 async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
@@ -264,6 +279,7 @@ async def update_member(member_id: str, member_data: MemberUpdate):
     member = await db.members.find_one({"id": member_id}, {"_id": 0})
     if isinstance(member.get('created_at'), str):
         member['created_at'] = datetime.fromisoformat(member['created_at'])
+        asyncio.create_task(background_sync_members())
     return member
 
 @api_router.delete("/members/{member_id}")
@@ -272,6 +288,7 @@ async def delete_member(member_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Member not found")
     await db.attendance.delete_many({"member_id": member_id})
+    asyncio.create_task(background_sync_members())
     return {"message": "Member deleted successfully"}
 
 # ========================
@@ -297,6 +314,7 @@ async def save_attendance(attendance_data: AttendanceCreate):
         records.append(doc)
     if records:
         await db.attendance.insert_many(records)
+        asyncio.create_task(background_sync_members())
     return {"message": f"Attendance saved for {len(records)} members", "date": attendance_data.date}
 
 @api_router.get("/attendance")
