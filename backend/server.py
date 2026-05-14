@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi.responses import RedirectResponse
 import os
 import certifi
+import secrets
 import httpx
 
 os.environ['SSL_CERT_FILE'] = certifi.where()
@@ -286,7 +287,9 @@ async def save_attendance(attendance_data: AttendanceCreate):
     asyncio.create_task(background_sync_attendance())
     return {"message": f"Attendance saved for {len(records)} members", "date": attendance_data.date}
 
-# Google OAuth
+# ========================
+# Google Sheets OAuth (Fixed with PKCE)
+# ========================
 @api_router.get("/oauth/sheets/login")
 async def sheets_login():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
@@ -301,22 +304,39 @@ async def sheets_login():
         }
     }, scopes=SCOPES, redirect_uri=REDIRECT_URI)
 
-    flow.code_challenge_method = None
-    url, state = flow.authorization_url(access_type='offline', prompt='consent')
+    # Generate code verifier for PKCE
+    code_verifier = secrets.token_urlsafe(32)
+    flow.code_challenge_method = "S256"
 
+    url, state = flow.authorization_url(
+        access_type='offline',
+        prompt='consent',
+        code_challenge=flow.code_challenge,  # This is important
+        code_challenge_method=flow.code_challenge_method
+    )
+
+    # Store both state and code_verifier
     await db.oauth_states.delete_many({})
-    await db.oauth_states.insert_one({"state": state, "created_at": datetime.now(timezone.utc).isoformat()})
+    await db.oauth_states.insert_one({
+        "state": state,
+        "code_verifier": code_verifier,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
 
     return {"auth_url": url}
 
 
 @api_router.get("/oauth/sheets/callback")
 async def sheets_callback(code: str, state: str):
-    stored_state = await db.oauth_states.find_one({"state": state})
-    if not stored_state:
+    stored = await db.oauth_states.find_one({"state": state})
+    if not stored:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
 
+    code_verifier = stored.get("code_verifier")
     await db.oauth_states.delete_one({"state": state})
+
+    if not code_verifier:
+        raise HTTPException(status_code=400, detail="Missing code verifier")
 
     flow = Flow.from_client_config({
         "web": {
@@ -327,10 +347,8 @@ async def sheets_callback(code: str, state: str):
         }
     }, scopes=SCOPES, redirect_uri=REDIRECT_URI)
 
-    flow.code_challenge_method = None
-
     try:
-        flow.fetch_token(code=code)
+        flow.fetch_token(code=code, code_verifier=code_verifier)
         creds = flow.credentials
 
         await db.google_tokens.delete_many({})
@@ -349,7 +367,7 @@ async def sheets_callback(code: str, state: str):
 
     except Exception as e:
         logger.error(f"Token exchange failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to connect Google Sheets: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to connect: {str(e)}")
 
 
 @api_router.post("/oauth/sheets/disconnect")
