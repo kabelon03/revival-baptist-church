@@ -77,6 +77,7 @@ class MemberCreate(BaseModel):
     zone: str
     phone_number: str
     address: Optional[str] = ""
+    group: Optional[str] = ""  # ← Add this
 
 class MemberUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -86,6 +87,7 @@ class MemberUpdate(BaseModel):
     zone: Optional[str] = None
     phone_number: Optional[str] = None
     address: Optional[str] = None
+    group: Optional[str] = None  # ← Add this
 
 class Member(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -97,6 +99,7 @@ class Member(BaseModel):
     zone: str
     phone_number: str
     address: str = ""
+    group: str = ""  # ← Add this
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class AttendanceRecord(BaseModel):
@@ -155,12 +158,13 @@ async def get_sheets_credentials():
 
 async def sync_members_to_sheets_internal(creds):
     members = await db.members.find({}, {"_id": 0}).to_list(10000)
-    headers = ["Member ID", "First Name", "Surname", "Gender", "Status", "Zone", "Phone Number", "Address"]
+    headers = ["First Name", "Surname", "Gender", "Status", "Zone", "Group", "Phone Number", "Address"]
     values = [headers]
     for m in members:
         values.append([
-            m.get('id', ''), m.get('first_name', ''), m.get('surname', ''),
-            m.get('gender', ''), m.get('status', ''), m.get('zone', ''),
+            m.get('first_name', ''), m.get('surname', ''),
+            m.get('gender', ''), m.get('status', ''),
+            m.get('zone', ''), m.get('group', ''),
             m.get('phone_number', ''), m.get('address', '')
         ])
     def write():

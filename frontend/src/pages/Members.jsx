@@ -51,6 +51,95 @@ import {
 const ZONES = ["Adonai", "Faith", "Wisdom", "Kindness", "Goodness", "Peace", "Bethel"];
 const STATUSES = ["Member", "Non-member", "Visitor"];
 const GENDERS = ["Male", "Female"];
+const GROUPS = [
+  "Teens (13-17)",
+  "Youth (18-25)",
+  "Young Adult/YAF (25-40)",
+  "Women of Virtue/WOV (40-65)",
+  "Men of Valor (40-65)",
+  "Senior Citizens (65+)"
+];
+
+// Zone mapping based on address keywords
+const ZONE_MAP = {
+  // Adonai
+  "block bb": "Adonai",
+  "block dd": "Adonai",
+  // Kindness
+  "block aa": "Kindness",
+  "block l": "Kindness",
+  "block h": "Kindness",
+  "block f": "Kindness",
+  "block k": "Kindness",
+  "block g": "Kindness",
+  "block lkk": "Kindness",
+  "block m": "Kindness",
+  // Wisdom
+  "block vv": "Wisdom",
+  "block uu": "Wisdom",
+  "block ww": "Wisdom",
+  "block xx": "Wisdom",
+  "ext 1": "Wisdom",
+  "ext 2": "Wisdom",
+  "ext 3": "Wisdom",
+  "ext 4": "Wisdom",
+  "ext 5": "Wisdom",
+  "ext 6": "Wisdom",
+  "ext 7": "Wisdom",
+  "ext 8": "Wisdom",
+  "ext 9": "Wisdom",
+  "ext 10": "Wisdom",
+  "ext 11": "Wisdom",
+  "ext 12": "Wisdom",
+  "ext 13": "Wisdom",
+  "ext 14": "Wisdom",
+  // Goodness
+  "block gg": "Goodness",
+  "block ff": "Goodness",
+  "block ia": "Goodness",
+  "block jj": "Goodness",
+  "block hh": "Goodness",
+  "block ll": "Goodness",
+  "skuurlik": "Goodness",
+  // Peace
+  "mabopane": "Peace",
+  "klipgat": "Peace",
+  "garankua": "Peace",
+  "wintervelt": "Peace",
+  // Bethel
+  "wonderpark": "Bethel",
+  "rosslyn": "Bethel",
+  "pretoria-wes": "Bethel",
+  "pretoria wes": "Bethel",
+  "pretoria-noord": "Bethel",
+  "pretoria noord": "Bethel",
+  // Faith
+  "block ss": "Faith",
+  "block kk": "Faith",
+  "block mm": "Faith",
+  "block p": "Faith",
+  "block y": "Faith",
+  "block r": "Faith",
+  "block x": "Faith",
+  "block s": "Faith",
+  "block w": "Faith",
+  "block t": "Faith",
+  "block v": "Faith",
+  "block f4": "Faith",
+  "dally mpofu": "Faith",
+};
+
+// Function to detect zone from address
+const detectZoneFromAddress = (address) => {
+  if (!address) return null;
+  const lower = address.toLowerCase().trim();
+  for (const [keyword, zone] of Object.entries(ZONE_MAP)) {
+    if (lower.includes(keyword)) {
+      return zone;
+    }
+  }
+  return null;
+};
 
 const Members = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -76,13 +165,13 @@ const Members = () => {
     status: "",
     zone: "",
     phone_number: "",
-    address: ""
+    address: "",
+    group: ""
   });
 
   useEffect(() => {
     fetchMembers();
     
-    // Check if should open add modal from URL
     if (searchParams.get("action") === "add") {
       setIsAddModalOpen(true);
       searchParams.delete("action");
@@ -122,7 +211,8 @@ const Members = () => {
       status: "",
       zone: "",
       phone_number: "",
-      address: ""
+      address: "",
+      group: ""
     });
   };
 
@@ -188,7 +278,8 @@ const Members = () => {
       status: member.status,
       zone: member.zone,
       phone_number: member.phone_number,
-      address: member.address || ""
+      address: member.address || "",
+      group: member.group || ""
     });
     setIsEditModalOpen(true);
   };
@@ -209,14 +300,10 @@ const Members = () => {
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case "Member":
-        return "member-status-member";
-      case "Non-member":
-        return "member-status-non-member";
-      case "Visitor":
-        return "member-status-visitor";
-      default:
-        return "bg-slate-100 text-slate-600";
+      case "Member": return "member-status-member";
+      case "Non-member": return "member-status-non-member";
+      case "Visitor": return "member-status-visitor";
+      default: return "bg-slate-100 text-slate-600";
     }
   };
 
@@ -229,10 +316,7 @@ const Members = () => {
           <p className="text-slate-500 mt-1">Manage church members</p>
         </div>
         <Button
-          onClick={() => {
-            resetForm();
-            setIsAddModalOpen(true);
-          }}
+          onClick={() => { resetForm(); setIsAddModalOpen(true); }}
           className="bg-blue-500 hover:bg-blue-600 text-white"
           data-testid="add-member-button"
         >
@@ -244,7 +328,6 @@ const Members = () => {
       {/* Search and Filters */}
       <div className="card-style mb-6">
         <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <Input
@@ -257,7 +340,6 @@ const Members = () => {
             />
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <Select value={filterZone} onValueChange={setFilterZone}>
               <SelectTrigger className="w-[140px]" data-testid="filter-zone-select">
@@ -333,6 +415,7 @@ const Members = () => {
                 <TableHead className="hidden sm:table-cell">Gender</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Zone</TableHead>
+                <TableHead className="hidden md:table-cell">Group</TableHead>
                 <TableHead className="hidden lg:table-cell">Phone</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -360,6 +443,9 @@ const Members = () => {
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <span className="zone-badge">{member.zone}</span>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <span className="text-sm text-slate-600">{member.group || "—"}</span>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">{member.phone_number}</TableCell>
                   <TableCell className="text-right">
@@ -400,25 +486,10 @@ const Members = () => {
           <DialogHeader>
             <DialogTitle>Add New Member</DialogTitle>
           </DialogHeader>
-          <MemberForm 
-            formData={formData} 
-            setFormData={setFormData} 
-            prefix="add"
-          />
+          <MemberForm formData={formData} setFormData={setFormData} prefix="add" />
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsAddModalOpen(false)}
-              data-testid="add-member-cancel"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddMember}
-              disabled={isSaving}
-              className="bg-blue-500 hover:bg-blue-600"
-              data-testid="add-member-submit"
-            >
+            <Button variant="outline" onClick={() => setIsAddModalOpen(false)} data-testid="add-member-cancel">Cancel</Button>
+            <Button onClick={handleAddMember} disabled={isSaving} className="bg-blue-500 hover:bg-blue-600" data-testid="add-member-submit">
               {isSaving ? "Saving..." : "Add Member"}
             </Button>
           </DialogFooter>
@@ -431,25 +502,10 @@ const Members = () => {
           <DialogHeader>
             <DialogTitle>Edit Member</DialogTitle>
           </DialogHeader>
-          <MemberForm 
-            formData={formData} 
-            setFormData={setFormData}
-            prefix="edit"
-          />
+          <MemberForm formData={formData} setFormData={setFormData} prefix="edit" />
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditModalOpen(false)}
-              data-testid="edit-member-cancel"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditMember}
-              disabled={isSaving}
-              className="bg-blue-500 hover:bg-blue-600"
-              data-testid="edit-member-submit"
-            >
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} data-testid="edit-member-cancel">Cancel</Button>
+            <Button onClick={handleEditMember} disabled={isSaving} className="bg-blue-500 hover:bg-blue-600" data-testid="edit-member-submit">
               {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
@@ -468,11 +524,7 @@ const Members = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="delete-member-cancel">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteMember}
-              className="bg-red-500 hover:bg-red-600"
-              data-testid="delete-member-confirm"
-            >
+            <AlertDialogAction onClick={handleDeleteMember} className="bg-red-500 hover:bg-red-600" data-testid="delete-member-confirm">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -484,32 +536,46 @@ const Members = () => {
 
 // Member Form Component
 const MemberForm = ({ formData, setFormData, prefix }) => {
+  const [zoneSuggestion, setZoneSuggestion] = useState(null);
+
+  const handleAddressChange = (e) => {
+    const address = e.target.value;
+    const detectedZone = detectZoneFromAddress(address);
+    setFormData({ ...formData, address });
+    if (detectedZone) {
+      setZoneSuggestion(detectedZone);
+    } else {
+      setZoneSuggestion(null);
+    }
+  };
+
+  const applyZoneSuggestion = () => {
+    setFormData({ ...formData, zone: zoneSuggestion });
+    setZoneSuggestion(null);
+  };
+
   return (
     <div className="space-y-4 py-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor={`${prefix}-first-name`} className="label-style">
-            First Name *
-          </Label>
+          <Label htmlFor={`${prefix}-first-name`} className="label-style">First Name *</Label>
           <Input
             id={`${prefix}-first-name`}
             value={formData.first_name}
             onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
             placeholder="Enter first name"
-            autoComplete="off"           // ← Added
+            autoComplete="off"
             data-testid={`${prefix}-first-name-input`}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor={`${prefix}-surname`} className="label-style">
-            Surname *
-          </Label>
+          <Label htmlFor={`${prefix}-surname`} className="label-style">Surname *</Label>
           <Input
             id={`${prefix}-surname`}
             value={formData.surname}
             onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
             placeholder="Enter surname"
-            autoComplete="off"           // ← Added
+            autoComplete="off"
             data-testid={`${prefix}-surname-input`}
           />
         </div>
@@ -518,10 +584,7 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label className="label-style">Gender *</Label>
-          <Select 
-            value={formData.gender} 
-            onValueChange={(value) => setFormData({ ...formData, gender: value })}
-          >
+          <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value })}>
             <SelectTrigger data-testid={`${prefix}-gender-select`}>
               <SelectValue placeholder="Select gender" />
             </SelectTrigger>
@@ -534,10 +597,7 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
         </div>
         <div className="space-y-2">
           <Label className="label-style">Status *</Label>
-          <Select 
-            value={formData.status} 
-            onValueChange={(value) => setFormData({ ...formData, status: value })}
-          >
+          <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
             <SelectTrigger data-testid={`${prefix}-status-select`}>
               <SelectValue placeholder="Select status" />
             </SelectTrigger>
@@ -550,12 +610,54 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
         </div>
       </div>
 
+      {/* Group Dropdown */}
+      <div className="space-y-2">
+        <Label className="label-style">Group</Label>
+        <Select value={formData.group} onValueChange={(value) => setFormData({ ...formData, group: value })}>
+          <SelectTrigger data-testid={`${prefix}-group-select`}>
+            <SelectValue placeholder="Select group" />
+          </SelectTrigger>
+          <SelectContent>
+            {GROUPS.map((group) => (
+              <SelectItem key={group} value={group}>{group}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Address with Zone Auto-suggest */}
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}-address`} className="label-style">Address</Label>
+        <Input
+          id={`${prefix}-address`}
+          value={formData.address}
+          onChange={handleAddressChange}
+          placeholder="e.g. Block BB, Soshanguve"
+          autoComplete="off"
+          data-testid={`${prefix}-address-input`}
+        />
+        {/* Zone suggestion banner */}
+        {zoneSuggestion && (
+          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+            <span className="text-sm text-blue-700">
+              📍 Suggested Zone: <strong>{zoneSuggestion}</strong>
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              onClick={applyZoneSuggestion}
+              className="bg-blue-500 hover:bg-blue-600 text-white text-xs h-7"
+            >
+              Apply
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Zone Dropdown */}
       <div className="space-y-2">
         <Label className="label-style">Zone *</Label>
-        <Select 
-          value={formData.zone} 
-          onValueChange={(value) => setFormData({ ...formData, zone: value })}
-        >
+        <Select value={formData.zone} onValueChange={(value) => setFormData({ ...formData, zone: value })}>
           <SelectTrigger data-testid={`${prefix}-zone-select`}>
             <SelectValue placeholder="Select zone" />
           </SelectTrigger>
@@ -568,33 +670,18 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={`${prefix}-phone`} className="label-style">
-          Phone Number
-        </Label>
+        <Label htmlFor={`${prefix}-phone`} className="label-style">Phone Number</Label>
         <Input
           id={`${prefix}-phone`}
           value={formData.phone_number}
           onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
           placeholder="Enter phone number"
-          autoComplete="off"           // ← Added
+          autoComplete="off"
           data-testid={`${prefix}-phone-input`}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor={`${prefix}-address`} className="label-style">
-          Address (Optional)
-        </Label>
-        <Input
-          id={`${prefix}-address`}
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          placeholder="Enter address"
-          autoComplete="off"           // ← Added
-          data-testid={`${prefix}-address-input`}
         />
       </div>
     </div>
   );
 };
+
 export default Members;
