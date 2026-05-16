@@ -178,11 +178,56 @@ async def sync_members_to_sheets_internal(creds):
         ).execute()
     await asyncio.to_thread(write)
 
+async def sync_zones_to_sheets_internal(creds):
+    values = [
+        ["Zone", "Areas/Blocks"],
+        ["Adonai", "Block BB, Block DD"],
+        ["Kindness", "Block AA, Block L, Block H, Block F, Block K, Block G, Block LKK, Block M"],
+        ["Wisdom", "Block VV, Block UU, Block WW, Block XX, Ext 1 - 14"],
+        ["Goodness", "Block GG, Block FF, Block IA, Block JJ, Block HH, Block LL, Skuurlik"],
+        ["Peace", "Mabopane, Klipgat, Garankua, Wintervelt"],
+        ["Bethel", "Wonderpark, Rosslyn, Pretoria-Wes, Pretoria-Noord"],
+        ["Faith", "Block SS, Block KK, Block MM, Block P, Block Y, Block R, Block X, Block S, Block W, Block T, Block V, Block F4, Dally Mpofu"],
+    ]
+    def write():
+        service = build('sheets', 'v4', credentials=creds)
+        service.spreadsheets().values().clear(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Zones!A:Z"
+        ).execute()
+        service.spreadsheets().values().update(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Zones!A1",
+            valueInputOption="RAW", body={"values": values}
+        ).execute()
+    await asyncio.to_thread(write)
+
+
+async def sync_groups_to_sheets_internal(creds):
+    values = [
+        ["Group", "Age Range"],
+        ["Teens", "13 - 17 years"],
+        ["Youth", "18 - 25 years"],
+        ["Young Adult/YAF", "25 - 40 years"],
+        ["Women of Virtue/WOV", "40 - 65 years (Female)"],
+        ["Men of Valor", "40 - 65 years (Male)"],
+        ["Senior Citizens", "Over 65 years"],
+    ]
+    def write():
+        service = build('sheets', 'v4', credentials=creds)
+        service.spreadsheets().values().clear(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Groups!A:Z"
+        ).execute()
+        service.spreadsheets().values().update(
+            spreadsheetId=GOOGLE_SHEETS_ID, range="Groups!A1",
+            valueInputOption="RAW", body={"values": values}
+        ).execute()
+    await asyncio.to_thread(write)
 
 async def sync_attendance_to_sheets_internal(creds):
+    """Append only new attendance records to Google Sheets"""
     records = await db.attendance.find({}, {"_id": 0}).to_list(100000)
     all_members = await db.members.find({}, {"_id": 0}).to_list(10000)
     member_map = {m['id']: m for m in all_members}
+    
     headers = ["First Name", "Surname", "Date", "Status", "Reason"]
     values = [headers]
     for r in records:
@@ -191,8 +236,10 @@ async def sync_attendance_to_sheets_internal(creds):
             member.get('first_name', ''), member.get('surname', ''),
             r.get('date', ''), r.get('status', ''), r.get('reason', '')
         ])
+    
     def write():
         service = build('sheets', 'v4', credentials=creds)
+        # Clear and rewrite only attendance sheet
         service.spreadsheets().values().clear(
             spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A:Z"
         ).execute()
@@ -200,6 +247,7 @@ async def sync_attendance_to_sheets_internal(creds):
             spreadsheetId=GOOGLE_SHEETS_ID, range="Attendance!A1",
             valueInputOption="RAW", body={"values": values}
         ).execute()
+    
     await asyncio.to_thread(write)
 
 
@@ -210,7 +258,7 @@ async def sync_attendance_to_sheets_internal(creds):
 async def background_sync_members():
     """Sync members to Google Sheets in background without blocking requests"""
     try:
-        await asyncio.sleep(3)  # Wait 3 seconds to batch multiple additions
+        await asyncio.sleep(1800)  # Wait 30 minutes to batch multiple additions
         creds = await get_sheets_credentials()
         if creds and GOOGLE_SHEETS_ID:
             await sync_members_to_sheets_internal(creds)
@@ -222,14 +270,13 @@ async def background_sync_members():
 async def background_sync_attendance():
     """Sync attendance to Google Sheets in background without blocking requests"""
     try:
-        await asyncio.sleep(3)  # Wait 3 seconds to batch multiple additions
+        await asyncio.sleep(1800)  # Wait 1800 seconds to batch multiple saves
         creds = await get_sheets_credentials()
         if creds and GOOGLE_SHEETS_ID:
             await sync_attendance_to_sheets_internal(creds)
             logger.info("Background sync: attendance synced to Google Sheets")
     except Exception as e:
         logger.error(f"Background attendance sync failed: {e}")
-
 
 # ========================
 # Auth
@@ -457,6 +504,19 @@ async def sheets_callback(code: str, state: str):
         "client_secret": GOOGLE_CLIENT_SECRET,
         "created_at": datetime.now(timezone.utc).isoformat()
     })
+    # Auto-populate Zones and Groups sheets
+    try:
+        creds_obj = Credentials(
+            token=token_info["access_token"],
+            refresh_token=token_info.get("refresh_token"),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET
+        )
+        await sync_zones_to_sheets_internal(creds_obj)
+        await sync_groups_to_sheets_internal(creds_obj)
+    except Exception as e:
+        logger.error(f"Failed to populate Zones/Groups sheets: {e}")
     return RedirectResponse(f"{FRONTEND_URL}/settings?sheets_connected=true")
 
 
@@ -480,6 +540,26 @@ async def sync_members_to_sheets():
     await sync_members_to_sheets_internal(creds)
     return {"message": "Members synced successfully"}
 
+@api_router.post("/sheets/sync/zones")
+async def sync_zones_to_sheets():
+    creds = await get_sheets_credentials()
+    if not creds:
+        raise HTTPException(status_code=400, detail="Google Sheets not connected")
+    if not GOOGLE_SHEETS_ID:
+        raise HTTPException(status_code=400, detail="Google Sheets ID not configured")
+    await sync_zones_to_sheets_internal(creds)
+    return {"message": "Zones synced successfully"}
+
+
+@api_router.post("/sheets/sync/groups")
+async def sync_groups_to_sheets():
+    creds = await get_sheets_credentials()
+    if not creds:
+        raise HTTPException(status_code=400, detail="Google Sheets not connected")
+    if not GOOGLE_SHEETS_ID:
+        raise HTTPException(status_code=400, detail="Google Sheets ID not configured")
+    await sync_groups_to_sheets_internal(creds)
+    return {"message": "Groups synced successfully"}
 
 @api_router.post("/sheets/sync/attendance")
 async def sync_attendance_to_sheets():
@@ -501,6 +581,7 @@ async def get_stats():
     total_members = await db.members.count_documents({})
     members_by_status = await db.members.aggregate([{"$group": {"_id": "$status", "count": {"$sum": 1}}}]).to_list(10)
     members_by_zone = await db.members.aggregate([{"$group": {"_id": "$zone", "count": {"$sum": 1}}}]).to_list(20)
+    members_by_group = await db.members.aggregate([{"$group": {"_id": "$group", "count": {"$sum": 1}}}]).to_list(20)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     today_records = await db.attendance.find({"date": today}, {"_id": 0}).to_list(10000)
     today_present = sum(1 for r in today_records if r.get('status') == 'Present')
@@ -508,6 +589,7 @@ async def get_stats():
         "total_members": total_members,
         "members_by_status": {s['_id']: s['count'] for s in members_by_status},
         "members_by_zone": {z['_id']: z['count'] for z in members_by_zone},
+        "members_by_group": {g['_id']: g['count'] for g in members_by_group if g['_id']},
         "today_attendance": {"date": today, "total": len(today_records), "present": today_present}
     }
 
