@@ -383,12 +383,19 @@ async def delete_member(member_id: str):
 
 @api_router.post("/attendance")
 async def save_attendance(attendance_data: AttendanceCreate):
-    # Only replace each member's record for this specific date
-    for record in attendance_data.records:
-        await db.attendance.delete_one({
-            "date": attendance_data.date,
-            "member_id": record.member_id
-        })
+    if not attendance_data.records:
+        return {"message": "No records to save", "date": attendance_data.date}
+
+    # Get all member IDs being updated
+    member_ids = [record.member_id for record in attendance_data.records]
+    
+    # Delete all existing records for these members on this date in ONE query
+    await db.attendance.delete_many({
+        "date": attendance_data.date,
+        "member_id": {"$in": member_ids}
+    })
+
+    # Build all records at once
     records = []
     for record in attendance_data.records:
         attendance = Attendance(
@@ -400,14 +407,15 @@ async def save_attendance(attendance_data: AttendanceCreate):
         doc = attendance.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
         records.append(doc)
+
+    # Insert all records in ONE query
     if records:
         await db.attendance.insert_many(records)
 
-    # Fire and forget
+    # Fire and forget background sync
     asyncio.create_task(background_sync_attendance())
 
     return {"message": f"Attendance saved for {len(records)} members", "date": attendance_data.date}
-
 
 @api_router.get("/attendance")
 async def get_attendance(date: Optional[str] = None, member_id: Optional[str] = None):
