@@ -318,7 +318,8 @@ async def create_member(member_data: MemberCreate):
 
 @api_router.get("/members", response_model=List[Member])
 async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
-                     status: Optional[str] = None, gender: Optional[str] = None):
+                     status: Optional[str] = None, gender: Optional[str] = None,
+                     group: Optional[str] = None):   # ← Added group parameter
     query = {}
     if search:
         query["$or"] = [
@@ -329,6 +330,7 @@ async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
     if zone: query["zone"] = zone
     if status: query["status"] = status
     if gender: query["gender"] = gender
+    if group: query["group"] = group   # ← Added group filter
     members = await db.members.find(query, {"_id": 0}).to_list(1000)
     for m in members:
         if isinstance(m.get('created_at'), str):
