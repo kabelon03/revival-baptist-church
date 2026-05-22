@@ -258,7 +258,7 @@ async def sync_attendance_to_sheets_internal(creds):
 async def background_sync_members():
     """Sync members to Google Sheets in background without blocking requests"""
     try:
-        await asyncio.sleep(1800)  # Wait 30 minutes to batch multiple additions
+        await asyncio.sleep(3600)  # Wait 1 hour to batch multiple additions
         creds = await get_sheets_credentials()
         if creds and GOOGLE_SHEETS_ID:
             await sync_members_to_sheets_internal(creds)
@@ -270,7 +270,7 @@ async def background_sync_members():
 async def background_sync_attendance():
     """Sync attendance to Google Sheets in background without blocking requests"""
     try:
-        await asyncio.sleep(1800)  # Wait 1800 seconds to batch multiple saves
+        await asyncio.sleep(3600)  # Wait 1 hour to batch multiple saves
         creds = await get_sheets_credentials()
         if creds and GOOGLE_SHEETS_ID:
             await sync_attendance_to_sheets_internal(creds)
