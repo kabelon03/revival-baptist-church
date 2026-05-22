@@ -670,16 +670,38 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor={`${prefix}-phone`} className="label-style">Phone Number</Label>
-        <Input
-          id={`${prefix}-phone`}
-          value={formData.phone_number}
-          onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-          placeholder="Enter phone number"
-          autoComplete="off"
-          data-testid={`${prefix}-phone-input`}
-        />
-      </div>
+  <Label htmlFor={`${prefix}-phone`} className="label-style">
+    Phone Number <span className="text-red-500 text-xs">(Exactly 10 digits)</span>
+  </Label>
+  <Input
+    id={`${prefix}-phone`}
+    type="tel"
+    value={formData.phone_number}
+    onChange={(e) => {
+      const value = e.target.value.replace(/[^0-9]/g, ''); // Allow only numbers
+      if (value.length <= 10) {
+        setFormData({ ...formData, phone_number: value });
+      }
+    }}
+    placeholder="Enter 10 digit phone number"
+    autoComplete="off"
+    maxLength={10}
+    className={`transition-all ${
+      formData.phone_number.length > 0 && formData.phone_number.length !== 10
+        ? "border-red-500 focus:border-red-500 ring-1 ring-red-500"
+        : ""
+    }`}
+    data-testid={`${prefix}-phone-input`}
+  />
+  
+  {/* Error Message */}
+  {formData.phone_number.length > 0 && formData.phone_number.length !== 10 && (
+    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+      <AlertCircle className="w-3 h-3" />
+      Phone number must be exactly 10 digits
+    </p>
+  )}
+</div>
     </div>
   );
 };
