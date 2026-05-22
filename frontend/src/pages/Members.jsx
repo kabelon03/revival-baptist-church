@@ -45,7 +45,8 @@ import {
   Trash2, 
   Filter,
   Users,
-  X
+  X,
+  AlertCircle   // ← Added for error icon
 } from "lucide-react";
 
 const ZONES = ["Adonai", "Faith", "Wisdom", "Kindness", "Goodness", "Peace", "Bethel"];
@@ -222,6 +223,12 @@ const Members = () => {
       return;
     }
 
+    // Phone number validation
+    if (formData.phone_number && formData.phone_number.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
+      return;
+    }
+
     setIsSaving(true);
     try {
       await axios.post(`${API}/members`, formData);
@@ -239,6 +246,12 @@ const Members = () => {
   const handleEditMember = async () => {
     if (!formData.first_name || !formData.surname) {
       toast.error("Please fill in required fields");
+      return;
+    }
+
+    // Phone number validation
+    if (formData.phone_number && formData.phone_number.length !== 10) {
+      toast.error("Phone number must be exactly 10 digits");
       return;
     }
 
@@ -534,7 +547,9 @@ const Members = () => {
   );
 };
 
-// Member Form Component
+// ========================
+// Member Form Component (Improved Phone Number)
+// ========================
 const MemberForm = ({ formData, setFormData, prefix }) => {
   const [zoneSuggestion, setZoneSuggestion] = useState(null);
 
@@ -636,7 +651,6 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
           autoComplete="off"
           data-testid={`${prefix}-address-input`}
         />
-        {/* Zone suggestion banner */}
         {zoneSuggestion && (
           <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
             <span className="text-sm text-blue-700">
@@ -669,39 +683,39 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
         </Select>
       </div>
 
+      {/* Improved Phone Number Field */}
       <div className="space-y-2">
-  <Label htmlFor={`${prefix}-phone`} className="label-style">
-    Phone Number <span className="text-red-500 text-xs">(Exactly 10 digits)</span>
-  </Label>
-  <Input
-    id={`${prefix}-phone`}
-    type="tel"
-    value={formData.phone_number}
-    onChange={(e) => {
-      const value = e.target.value.replace(/[^0-9]/g, ''); // Allow only numbers
-      if (value.length <= 10) {
-        setFormData({ ...formData, phone_number: value });
-      }
-    }}
-    placeholder="Enter 10 digit phone number"
-    autoComplete="off"
-    maxLength={10}
-    className={`transition-all ${
-      formData.phone_number.length > 0 && formData.phone_number.length !== 10
-        ? "border-red-500 focus:border-red-500 ring-1 ring-red-500"
-        : ""
-    }`}
-    data-testid={`${prefix}-phone-input`}
-  />
-  
-  {/* Error Message */}
-  {formData.phone_number.length > 0 && formData.phone_number.length !== 10 && (
-    <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-      <AlertCircle className="w-3 h-3" />
-      Phone number must be exactly 10 digits
-    </p>
-  )}
-</div>
+        <Label htmlFor={`${prefix}-phone`} className="label-style">
+          Phone Number <span className="text-red-500 text-xs">(Exactly 10 digits)</span>
+        </Label>
+        <Input
+          id={`${prefix}-phone`}
+          type="tel"
+          value={formData.phone_number}
+          onChange={(e) => {
+            const value = e.target.value.replace(/[^0-9]/g, '');
+            if (value.length <= 10) {
+              setFormData({ ...formData, phone_number: value });
+            }
+          }}
+          placeholder="Enter 10 digit phone number"
+          autoComplete="off"
+          maxLength={10}
+          className={`transition-all ${
+            formData.phone_number.length > 0 && formData.phone_number.length !== 10
+              ? "border-red-500 focus:border-red-500 ring-1 ring-red-500"
+              : ""
+          }`}
+          data-testid={`${prefix}-phone-input`}
+        />
+        
+        {formData.phone_number.length > 0 && formData.phone_number.length !== 10 && (
+          <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            Phone number must be exactly 10 digits
+          </p>
+        )}
+      </div>
     </div>
   );
 };
