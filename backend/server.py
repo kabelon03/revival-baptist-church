@@ -77,7 +77,7 @@ class MemberCreate(BaseModel):
     zone: str
     phone_number: str
     address: Optional[str] = ""
-    group: Optional[str] = ""  # ← Add this
+    group: Optional[str] = ""  # ← Added
 
 class MemberUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -87,7 +87,7 @@ class MemberUpdate(BaseModel):
     zone: Optional[str] = None
     phone_number: Optional[str] = None
     address: Optional[str] = None
-    group: Optional[str] = None  # ← Add this
+    group: Optional[str] = None  # ← Added
 
 class Member(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -99,7 +99,7 @@ class Member(BaseModel):
     zone: str
     phone_number: str
     address: str = ""
-    group: str = ""  # ← Add this
+    group: str = ""  # ← Added
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class AttendanceRecord(BaseModel):
@@ -319,7 +319,7 @@ async def create_member(member_data: MemberCreate):
 @api_router.get("/members", response_model=List[Member])
 async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
                      status: Optional[str] = None, gender: Optional[str] = None,
-                     group: Optional[str] = None):   # ← Added group parameter
+                     group: Optional[str] = None):   # ← Added for Group Filter
     query = {}
     if search:
         query["$or"] = [
@@ -330,7 +330,7 @@ async def get_members(search: Optional[str] = None, zone: Optional[str] = None,
     if zone: query["zone"] = zone
     if status: query["status"] = status
     if gender: query["gender"] = gender
-    if group: query["group"] = group   # ← Added group filter
+    if group: query["group"] = group   # ← Added
     members = await db.members.find(query, {"_id": 0}).to_list(1000)
     for m in members:
         if isinstance(m.get('created_at'), str):
