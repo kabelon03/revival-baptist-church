@@ -686,7 +686,7 @@ const MemberForm = ({ formData, setFormData, prefix }) => {
       {/* Improved Phone Number Field */}
       <div className="space-y-2">
         <Label htmlFor={`${prefix}-phone`} className="label-style">
-          Phone Number <span className="text-red-500 text-xs">(Exactly 10 digits)</span>
+          Phone Number <span className="text-red-500 text-xs"></span>
         </Label>
         <Input
           id={`${prefix}-phone`}
