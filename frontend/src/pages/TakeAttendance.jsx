@@ -325,16 +325,6 @@ const TakeAttendance = () => {
               ))}
             </SelectContent>
           </Select>
-
-          {/* Mark All Buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={markAllPresent} className="text-green-600 border-green-200 hover:bg-green-50" data-testid="mark-all-present">
-              <CheckCircle2 className="w-4 h-4 mr-1" />All Present
-            </Button>
-            <Button variant="outline" size="sm" onClick={markAllNotPresent} className="text-yellow-600 border-yellow-200 hover:bg-yellow-50" data-testid="mark-all-not-present">
-              <XCircle className="w-4 h-4 mr-1" />All Not Present
-            </Button>
-          </div>
         </div>
 
         {/* Active filter indicator */}
