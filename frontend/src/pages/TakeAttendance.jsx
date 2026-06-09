@@ -27,7 +27,8 @@ import {
   XCircle,
   AlertCircle,
   Users,
-  Filter
+  Filter,
+  UserPlus
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -40,7 +41,7 @@ const GROUPS = [
   "Men of Valor (40-65)",
   "Senior Citizens (65+)"
 ];
-const ATTENDANCE_STATUSES = ["Present", "Not Present", "Absent"];
+const ATTENDANCE_STATUSES = ["Present", "Not Present", "Absent", "First Time Visitor"];
 
 const TakeAttendance = () => {
   const [members, setMembers] = useState([]);
@@ -139,7 +140,6 @@ const TakeAttendance = () => {
         records
       });
 
-      // Clear reasons after saving but keep the status
       const clearedAttendance = {};
       Object.entries(attendance).forEach(([memberId, data]) => {
         clearedAttendance[memberId] = { status: data.status, reason: "" };
@@ -171,7 +171,6 @@ const TakeAttendance = () => {
     toast.success("All visible members marked as Not Present");
   };
 
-  // Filter members by search, zone, group AND attendance status
   const filteredMembers = members.filter((member) => {
     const matchesSearch =
       !search ||
@@ -186,11 +185,11 @@ const TakeAttendance = () => {
     return matchesSearch && matchesZone && matchesGroup && matchesStatus;
   });
 
-  // Count stats
   const stats = {
     present: Object.values(attendance).filter((a) => a.status === "Present").length,
     notPresent: Object.values(attendance).filter((a) => a.status === "Not Present").length,
-    absent: Object.values(attendance).filter((a) => a.status === "Absent").length
+    absent: Object.values(attendance).filter((a) => a.status === "Absent").length,
+    firstTimeVisitor: Object.values(attendance).filter((a) => a.status === "First Time Visitor").length,
   };
 
   const getStatusIcon = (status) => {
@@ -198,6 +197,7 @@ const TakeAttendance = () => {
       case "Present": return <CheckCircle2 className="w-5 h-5 text-green-500" />;
       case "Not Present": return <XCircle className="w-5 h-5 text-yellow-500" />;
       case "Absent": return <AlertCircle className="w-5 h-5 text-red-500" />;
+      case "First Time Visitor": return <UserPlus className="w-5 h-5 text-blue-500" />;
       default: return null;
     }
   };
@@ -225,8 +225,8 @@ const TakeAttendance = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      {/* Stats Cards — now 4 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div
           className={`stats-card border-l-4 border-l-green-500 cursor-pointer transition-all ${filterStatus === "Present" ? "ring-2 ring-green-400" : ""}`}
           onClick={() => setFilterStatus(filterStatus === "Present" ? "" : "Present")}
@@ -240,6 +240,7 @@ const TakeAttendance = () => {
             <CheckCircle2 className="w-8 h-8 text-green-200" />
           </div>
         </div>
+
         <div
           className={`stats-card border-l-4 border-l-yellow-500 cursor-pointer transition-all ${filterStatus === "Not Present" ? "ring-2 ring-yellow-400" : ""}`}
           onClick={() => setFilterStatus(filterStatus === "Not Present" ? "" : "Not Present")}
@@ -253,6 +254,7 @@ const TakeAttendance = () => {
             <XCircle className="w-8 h-8 text-yellow-200" />
           </div>
         </div>
+
         <div
           className={`stats-card border-l-4 border-l-red-500 cursor-pointer transition-all ${filterStatus === "Absent" ? "ring-2 ring-red-400" : ""}`}
           onClick={() => setFilterStatus(filterStatus === "Absent" ? "" : "Absent")}
@@ -266,25 +268,30 @@ const TakeAttendance = () => {
             <AlertCircle className="w-8 h-8 text-red-200" />
           </div>
         </div>
+
+        <div
+          className={`stats-card border-l-4 border-l-blue-500 cursor-pointer transition-all ${filterStatus === "First Time Visitor" ? "ring-2 ring-blue-400" : ""}`}
+          onClick={() => setFilterStatus(filterStatus === "First Time Visitor" ? "" : "First Time Visitor")}
+          data-testid="stats-first-time-visitor"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="stats-value text-blue-600">{stats.firstTimeVisitor}</div>
+              <div className="stats-label">First Time Visitors</div>
+            </div>
+            <UserPlus className="w-8 h-8 text-blue-200" />
+          </div>
+        </div>
       </div>
 
       {/* Search and Filters */}
       <div className="card-style mb-6">
         <div className="flex flex-col md:flex-row gap-4 flex-wrap">
-          {/* Search */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <Input
-              type="text"
-              placeholder="Search members..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-              data-testid="attendance-search-input"
-            />
+            <Input type="text" placeholder="Search members..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" data-testid="attendance-search-input" />
           </div>
 
-          {/* Zone Filter */}
           <Select value={filterZone} onValueChange={setFilterZone}>
             <SelectTrigger className="w-full md:w-[160px]" data-testid="attendance-zone-filter">
               <Filter className="w-4 h-4 mr-2" />
@@ -292,13 +299,10 @@ const TakeAttendance = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Zones</SelectItem>
-              {ZONES.map((zone) => (
-                <SelectItem key={zone} value={zone}>{zone}</SelectItem>
-              ))}
+              {ZONES.map((zone) => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          {/* Group Filter */}
           <Select value={filterGroup} onValueChange={setFilterGroup}>
             <SelectTrigger className="w-full md:w-[180px]" data-testid="attendance-group-filter">
               <Filter className="w-4 h-4 mr-2" />
@@ -306,28 +310,31 @@ const TakeAttendance = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Groups</SelectItem>
-              {GROUPS.map((group) => (
-                <SelectItem key={group} value={group}>{group}</SelectItem>
-              ))}
+              {GROUPS.map((group) => <SelectItem key={group} value={group}>{group}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          {/* Attendance Status Filter */}
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-full md:w-[160px]" data-testid="attendance-status-filter">
+            <SelectTrigger className="w-full md:w-[180px]" data-testid="attendance-status-filter">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              {ATTENDANCE_STATUSES.map((status) => (
-                <SelectItem key={status} value={status}>{status}</SelectItem>
-              ))}
+              {ATTENDANCE_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
             </SelectContent>
           </Select>
+
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={markAllPresent} className="text-green-600 border-green-200 hover:bg-green-50" data-testid="mark-all-present">
+              <CheckCircle2 className="w-4 h-4 mr-1" />All Present
+            </Button>
+            <Button variant="outline" size="sm" onClick={markAllNotPresent} className="text-yellow-600 border-yellow-200 hover:bg-yellow-50" data-testid="mark-all-not-present">
+              <XCircle className="w-4 h-4 mr-1" />All Not Present
+            </Button>
+          </div>
         </div>
 
-        {/* Active filter indicator */}
         {filterStatus && filterStatus !== "all" && (
           <div className="mt-3 flex items-center gap-2">
             <span className="text-sm text-slate-500">
@@ -354,7 +361,6 @@ const TakeAttendance = () => {
           <div className="divide-y divide-slate-100">
             {filteredMembers.map((member, index) => (
               <div key={member.id} className="attendance-row flex-col sm:flex-row gap-4" data-testid={`attendance-row-${index}`}>
-                {/* Member Info */}
                 <div className="flex items-center gap-3 flex-1">
                   <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-medium">
                     {member.first_name[0]}{member.surname[0]}
@@ -365,30 +371,32 @@ const TakeAttendance = () => {
                   </div>
                 </div>
 
-                {/* Status Selection */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <RadioGroup
                     value={attendance[member.id]?.status || "Not Present"}
                     onValueChange={(value) => updateAttendance(member.id, value)}
-                    className="flex gap-4"
+                    className="flex flex-wrap gap-4"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="Present" id={`present-${member.id}`} data-testid={`present-radio-${index}`} />
                       <Label htmlFor={`present-${member.id}`} className="text-sm font-medium text-green-600 cursor-pointer">Present</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="Not Present" id={`not-present-${member.id}`} data-testid={`not-present-radio-${index}`} />
+                      <RadioGroupItem value="/* No */t Present" id={`not-present-${member.id}`} data-testid={`not-present-radio-${index}`} />
                       <Label htmlFor={`not-present-${member.id}`} className="text-sm font-medium text-yellow-600 cursor-pointer">Not Present</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="Absent" id={`absent-${member.id}`} data-testid={`absent-radio-${index}`} />
                       <Label htmlFor={`absent-${member.id}`} className="text-sm font-medium text-red-600 cursor-pointer">Absent</Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="First Time Visitor" id={`visitor-${member.id}`} data-testid={`visitor-radio-${index}`} />
+                      <Label htmlFor={`visitor-${member.id}`} className="text-sm font-medium text-blue-600 cursor-pointer">First Time Visitor</Label>
+                    </div>
                   </RadioGroup>
                   <div className="hidden sm:block">{getStatusIcon(attendance[member.id]?.status)}</div>
                 </div>
 
-                {/* Reason Input (only for Absent) */}
                 {attendance[member.id]?.status === "Absent" && (
                   <div className="w-full sm:w-64">
                     <Input

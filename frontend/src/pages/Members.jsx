@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 
 const ZONES = ["Adonai", "Faith", "Wisdom", "Kindness", "Goodness", "Peace", "Bethel"];
-const STATUSES = ["Member", "Non-member", "Visitor"];
+const STATUSES = ["BB RBC Member", "Jukulyn RBC Member", "Non-member", "First Time Visitor"];
 const GENDERS = ["Male", "Female"];
 const GROUPS = [
   "Teens (13-17)",
@@ -313,9 +313,10 @@ const Members = () => {
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case "Member": return "member-status-member";
+      case "BB RBC Member": return "member-status-bb-rbc-member";
+      case "Jukulyn RBC Member": return "member-status-jukulyn-rbc-member";
       case "Non-member": return "member-status-non-member";
-      case "Visitor": return "member-status-visitor";
+      case "First Time Visitor": return "member-status-visitor";
       default: return "bg-slate-100 text-slate-600";
     }
   };

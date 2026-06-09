@@ -177,13 +177,15 @@ async def sync_members_to_sheets_internal(creds):
             valueInputOption="RAW", body={"values": values}
         ).execute()
     await asyncio.to_thread(write)
+    
+exts = ", ".join(f"Ext {i}" for i in range(1,15))
 
 async def sync_zones_to_sheets_internal(creds):
     values = [
         ["Zone", "Areas/Blocks"],
         ["Adonai", "Block BB, Block DD"],
-        ["Kindness", "Block AA, Block L, Block H, Block F, Block K, Block G, Block LKK, Block M"],
-        ["Wisdom", "Block VV, Block UU, Block WW, Block XX, Ext 1 - 14"],
+        ["Kindness", "Block AA, Block L, Block H, Block F, Block K, Block G, Block LKK, Block M, Block CC"],
+        ["Wisdom", f"Block VV, Block UU, Block WW, Block XX, {exts}"],
         ["Goodness", "Block GG, Block FF, Block IA, Block JJ, Block HH, Block LL, Skuurlik"],
         ["Peace", "Mabopane, Klipgat, Garankua, Wintervelt"],
         ["Bethel", "Wonderpark, Rosslyn, Pretoria-Wes, Pretoria-Noord"],
