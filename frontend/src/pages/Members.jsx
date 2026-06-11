@@ -70,7 +70,7 @@ const ZONE_MAP = {
   "block aa": "Kindness",
   "block l": "Kindness",
   "block h": "Kindness",
-  "block f ": "Kindness",
+  "block f": "Kindness",
   "block k": "Kindness",
   "block g": "Kindness",
   "block lkk": "Kindness",
