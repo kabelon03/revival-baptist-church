@@ -70,11 +70,12 @@ const ZONE_MAP = {
   "block aa": "Kindness",
   "block l": "Kindness",
   "block h": "Kindness",
-  "block f": "Kindness",
+  "block f ": "Kindness",
   "block k": "Kindness",
   "block g": "Kindness",
   "block lkk": "Kindness",
   "block m": "Kindness",
+  "block cc": "Kindness",
   // Wisdom
   "block vv": "Wisdom",
   "block uu": "Wisdom",
@@ -134,8 +135,15 @@ const ZONE_MAP = {
 const detectZoneFromAddress = (address) => {
   if (!address) return null;
   const lower = address.toLowerCase().trim();
-  for (const [keyword, zone] of Object.entries(ZONE_MAP)) {
-    if (lower.includes(keyword)) {
+
+  // Sort keywords by length (longest first) to prioritize specific matches
+  const sortedEntries = Object.entries(ZONE_MAP)
+    .sort(([a], [b]) => b.length - a.length);
+
+  for (const [keyword, zone] of sortedEntries) {
+    // Use word boundary or space/punctuation awareness for better accuracy
+    const regex = new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (regex.test(lower) || lower.includes(keyword)) {
       return zone;
     }
   }
