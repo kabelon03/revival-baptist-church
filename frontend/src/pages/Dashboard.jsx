@@ -64,30 +64,25 @@ const Dashboard = () => {
     }
   ];
 
-  // Group colors for visual distinction
   const groupColors = {
-    "Teens (13-17)": { bg: "bg-pink-50", text: "text-pink-600", border: "border-pink-200" },
-    "Youth (18-25)": { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-200" },
-    "Young Adult/YAF (25-40)": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200" },
-    "Women of Virtue/WOV (40-65)": { bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-200" },
-    "Men of Valor (40-65)": { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200" },
-    "Senior Citizens (65+)": { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-200" },
+    "Teens (13-17)": { bg: "bg-pink-50", text: "text-pink-600", border: "border-pink-200", hover: "hover:bg-pink-100" },
+    "Youth (18-25)": { bg: "bg-purple-50", text: "text-purple-600", border: "border-purple-200", hover: "hover:bg-purple-100" },
+    "Young Adult/YAF (25-40)": { bg: "bg-blue-50", text: "text-blue-600", border: "border-blue-200", hover: "hover:bg-blue-100" },
+    "Women of Virtue/WOV (40-65)": { bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-200", hover: "hover:bg-rose-100" },
+    "Men of Valor (40-65)": { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-200", hover: "hover:bg-emerald-100" },
+    "Senior Citizens (65+)": { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-200", hover: "hover:bg-amber-100" },
   };
 
   const getGroupColor = (group) => {
-    return groupColors[group] || { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200" };
+    return groupColors[group] || { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", hover: "hover:bg-slate-100" };
   };
 
   return (
     <div className="page-container animate-fadeIn" data-testid="dashboard-page">
       {/* Welcome Section */}
       <div className="mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2">
-          Dashboard
-        </h1>
-        <p className="text-slate-500">
-          Welcome to the Church Attendance Management System
-        </p>
+        <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2">Dashboard</h1>
+        <p className="text-slate-500">Welcome to the Church Attendance Management System</p>
       </div>
 
       {/* Stats Cards */}
@@ -102,28 +97,20 @@ const Dashboard = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="stats-card" data-testid="stats-total-members">
-            <div className="stats-value text-blue-600">
-              {stats?.total_members || 0}
-            </div>
+          <div className="stats-card cursor-pointer hover:bg-blue-50 transition-colors" onClick={() => navigate("/members")} data-testid="stats-total-members">
+            <div className="stats-value text-blue-600">{stats?.total_members || 0}</div>
             <div className="stats-label">Total Members</div>
           </div>
           <div className="stats-card" data-testid="stats-active-members">
-            <div className="stats-value text-emerald-600">
-              {stats?.members_by_status?.Member || 0}
-            </div>
+            <div className="stats-value text-emerald-600">{stats?.members_by_status?.Member || 0}</div>
             <div className="stats-label">Active Members</div>
           </div>
           <div className="stats-card" data-testid="stats-visitors">
-            <div className="stats-value text-violet-600">
-              {stats?.members_by_status?.Visitor || 0}
-            </div>
-            <div className="stats-label">Visitors</div>
+            <div className="stats-value text-violet-600">{stats?.members_by_status?.["First Time Visitor"] || 0}</div>
+            <div className="stats-label">First Time Visitors</div>
           </div>
           <div className="stats-card" data-testid="stats-today-present">
-            <div className="stats-value text-amber-600">
-              {stats?.today_attendance?.present || 0}
-            </div>
+            <div className="stats-value text-amber-600">{stats?.today_attendance?.present || 0}</div>
             <div className="stats-label">Present Today</div>
           </div>
         </div>
@@ -145,52 +132,52 @@ const Dashboard = () => {
               </div>
               <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mt-4">
-              {card.title}
-            </h3>
-            <p className="text-slate-500 text-sm mt-1">
-              {card.description}
-            </p>
+            <h3 className="text-lg font-semibold text-slate-900 mt-4">{card.title}</h3>
+            <p className="text-slate-500 text-sm mt-1">{card.description}</p>
           </div>
         ))}
       </div>
 
-      {/* Zone Distribution */}
+      {/* Zone Distribution — clickable */}
       {stats?.members_by_zone && Object.keys(stats.members_by_zone).length > 0 && (
         <div className="card-style mb-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-blue-500" />
             Members by Zone
           </h2>
+          <p className="text-xs text-slate-400 mb-4">Click a zone to view its members</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {Object.entries(stats.members_by_zone).map(([zone, count]) => (
-              <div 
-                key={zone} 
-                className="bg-slate-50 rounded-lg p-3 text-center"
+              <div
+                key={zone}
+                onClick={() => navigate(`/members?zone=${encodeURIComponent(zone)}`)}
+                className="bg-slate-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent rounded-lg p-3 text-center cursor-pointer transition-all group"
                 data-testid={`zone-stat-${zone.toLowerCase()}`}
               >
-                <div className="text-xl font-bold text-slate-800">{count}</div>
-                <div className="text-xs text-slate-500 uppercase tracking-wide">{zone}</div>
+                <div className="text-xl font-bold text-slate-800 group-hover:text-blue-600">{count}</div>
+                <div className="text-xs text-slate-500 group-hover:text-blue-500 uppercase tracking-wide">{zone}</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Group Distribution */}
+      {/* Group Distribution — clickable */}
       {stats?.members_by_group && Object.keys(stats.members_by_group).length > 0 && (
         <div className="card-style mb-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
             <Users className="w-5 h-5 text-violet-500" />
             Members by Group
           </h2>
+          <p className="text-xs text-slate-400 mb-4">Click a group to view its members</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {Object.entries(stats.members_by_group).map(([group, count]) => {
               const colors = getGroupColor(group);
               return (
                 <div
                   key={group}
-                  className={`${colors.bg} border ${colors.border} rounded-lg p-4 flex items-center justify-between`}
+                  onClick={() => navigate(`/members?group=${encodeURIComponent(group)}`)}
+                  className={`${colors.bg} ${colors.hover} border ${colors.border} rounded-lg p-4 flex items-center justify-between cursor-pointer transition-all`}
                   data-testid={`group-stat-${group.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   <div className="text-sm font-medium text-slate-700">{group}</div>
